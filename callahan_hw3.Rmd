@@ -1,0 +1,123 @@
+---
+title: "URPL 6230: Week 3 Homework"
+author: "Delaney Callahan"
+date: "09/13/2022"
+output:
+  prettydoc::html_pretty:
+    theme: hpstr
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gapminder)
+library(dplyr)
+library(ggplot2)
+library(pander)
+```
+
+## Q1: How many unique countries are represented per continent?
+
+```{r q1, echo=TRUE}
+gapminder %>% 
+    group_by(continent) %>%
+    summarize(count = n()) %>%
+    pander(caption = "Number of Countries per Continent")
+```
+
+
+<br />
+
+
+## Q2: Which European nation had the lowest GDP per capita in 1997?
+
+```{r q2, echo=TRUE}
+gapminder %>%
+    filter(continent == "Europe" & year == 1997) %>%
+    arrange(gdpPercap) %>%
+    head(1) %>%
+    pander(caption = "Lowest GDP in 1997")
+```
+
+
+<br />
+
+
+## Q3: What was the average life expectancy across all continents in the 1980s?
+
+The average life expectancy across all continents in the 1980s was `r gapminder %>% filter(year >= 1980 & year <= 1989) %>% pull(lifeExp) %>% mean() %>% round(1)`.
+
+Unless the question was asking for life expectancy in the 1980s for each continent...
+
+```{r q3, echo=TRUE}
+gapminder %>%
+    filter(year >= 1980 & year <= 1989) %>%
+    group_by(continent) %>%
+    summarize(mean_expectancy = mean(lifeExp)) %>%
+    pander(caption = "Average Life Expectancy by Continent in the 1980s")
+```
+
+
+<br />
+
+
+## Q4: What countries and years had a life expectancy of at least 80 years?
+
+```{r q4, echo=TRUE}
+gapminder %>%
+    filter(lifeExp >= 80) %>%
+    select(country, year, lifeExp) %>%
+    arrange(country, year) %>%
+    rename(expectancy = lifeExp) %>%
+    pander(caption = "Countries that Achieved Life Expectancy over 80 and When")
+```
+
+
+<br />
+
+
+## Q5: Select 10 rows randomly from the gapminder dataset and display them.
+
+```{r q5, echo=TRUE}
+set.seed(999)
+gapminder %>%
+  sample_n(size = 10, replace = FALSE) %>%
+  pander(caption = "Random Sample")
+```
+
+
+<br />
+
+
+## Q6: Except for Asia, sort the dataframe to display continent-year combinations with the highest population.
+
+```{r q6, echo=TRUE}
+gapminder %>%
+    filter(continent != "Asia") %>%
+    select(continent, year, pop) %>%
+    arrange(desc(pop)) %>%
+    head(5) %>%
+    pander(caption = "Continents with Highest Population")
+```
+
+
+<br />
+
+
+## Q7: Plot the results obtained in Q5 using `ggplot()`.
+
+```{r q7, echo=TRUE, fig.align='center'}
+set.seed(999)
+random_sample <- gapminder %>%
+  sample_n(size = 10, replace = FALSE)
+ggplot(data = random_sample,
+       aes(x = year, y = lifeExp, color = country,
+           label = round(lifeExp, 1))) +
+    geom_point(size = 3) +
+    geom_text(nudge_y = 0.9, vjust = 0, color = "black", size = 3.5) +
+    xlab("Year") +
+    ylab("Life Expectancy") +
+    ggtitle ("Random Sample of Life Expectancy") +
+    theme_gray() +
+    theme(plot.title = element_text(hjust = 0.5))
+```
