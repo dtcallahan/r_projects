@@ -1,0 +1,142 @@
+---
+title: "URPL 6230: Week 2 Homework"
+author: "Delaney Callahan"
+date: "09/06/22"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gapminder)
+library(ggplot2)
+library(dplyr)
+library(pander)
+library(RColorBrewer)
+library(cowplot)
+```
+
+## Overview of the `gapminder` Dataset
+
+Contains data on life expectancy, GDP per capita, and population by country. The data explored here is a excerpt of a much larger dataset provided by an independent, educational non-profit dedicated to fighting global misconceptions via reliable data. There are `r count(gapminder)` total records and `r ncol(gapminder)` study variables.
+
+Study variables: 
+
+* `country` - `r length(unique(gapminder$country))` countries
+* `continent` - Across `r length(unique(gapminder$continent))` continents
+* `year` - From `r min(gapminder$year)` to `r max(gapminder$year)` in intervals of 5 years
+* `lifeExp` - Life expectancy in years
+* `pop` - Population
+* `gdpPercap` - GDP per capita in US dollars
+
+Truncated view of the basic data structure:
+```{r table, echo=FALSE}
+pander(head(gapminder), split.tables = 120)
+```
+
+The rest of this document will be used to explore various relationships within the `gapminder` dataset.
+
+
+<br />
+
+
+## Plot #1:
+
+```{r barchart, echo=FALSE}
+ggplot(data = gapminder, aes(x = continent, y = pop, fill = continent)) +
+    geom_bar(stat = "identity") +
+    xlab("Continents") +
+    ylab("Total Population") +
+    ggtitle("Total Population by Continent") +
+    scale_fill_brewer(palette = "Set2") +
+    theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+```
+
+Simple bar chart showing the total population for each continent. Asia and Oceania are the outliers with the highest and lowest populations, respectively. It is important to consider how population (and the demographics therein) might affect other variables like GDP.
+
+
+<br />
+
+
+## Plot #2:
+
+```{r linechart, echo=FALSE, fig.height=7, fig.width=10}
+compare_cntry <- gapminder %>% filter(country == "Germany" | country == "Thailand")
+p1 <- ggplot(data = compare_cntry, aes(x = year, y = pop, group = country, color = country)) +
+    geom_line(size = 1) +
+    geom_point(size = 2) +
+    xlab("Year") +
+    ylab("Population") +
+    ggtitle("Comparison of Population") +
+    theme_gray() +
+    theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45))
+p2 <- ggplot(data = compare_cntry, aes(x = year, y = lifeExp, group = country, color = country)) +
+    geom_line(size = 1) +
+    geom_point(size = 2) +
+    xlab("Year") +
+    ylab("Life Expectancy") +
+    ggtitle("Comparison of Life Expectancy") +
+    theme_gray() +
+    theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45))
+p3 <- ggplot(data = compare_cntry, aes(x = year, y = gdpPercap, group = country, color = country)) +
+    geom_line(size = 1) +
+    geom_point(size = 2) +
+    xlab("Year") +
+    ylab("GDP per Capita") +
+    ggtitle("Comparison of GDP") +
+    theme_gray() +
+    theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 45))
+plot_grid(p1, p2, p3)
+```
+
+Multiple line charts comparing population, life expectancy, and GDP per capita changes over time for Germany and Thailand. While Thailand experienced a jump in population, their GDP lagged behind. Unlike Germany whose population has grown slightly, but GDP has climbed as a faster rate.
+
+
+<br />
+
+
+## Plot #3:
+
+```{r scatterplot, echo=FALSE, message=FALSE}
+americas <- gapminder %>% filter(continent == "Americas")
+ggplot(data = americas, aes(x = gdpPercap, y = lifeExp)) +
+    geom_point(col = "darkorange2") +
+    geom_smooth(method = loess, se = FALSE, color = "navy") +
+    ggtitle("GDP per Capita vs. Life Expectancy in the Americas") +
+    xlab("GDP per Capita") +
+    ylab("Life Expectancy") +
+    theme_gray() +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+A scatter plot showing the relationship between GDP per capita and life expectancy in the Americas. As GDP goes up, so does life expectancy. This is the expected relationship.
+
+
+<br />
+
+
+## Plot #4:
+
+```{r multiple_linegraph, echo=FALSE, message=FALSE, fig.height=7, fig.width=10}
+ggplot(data = gapminder, aes(x = year, y = gdpPercap, group = country)) +
+    geom_line(alpha = 0.5, aes(color = "Country", size = "Country")) +
+    geom_line(stat = "smooth", method = "loess",
+              aes(group = continent, color = "Continent",
+                  size = "Continent"), alpha = 0.75) +
+    facet_wrap(~ continent, nrow = 2) +
+    scale_y_log10(labels = scales::dollar) +
+    scale_color_manual(name = "GDP for:",
+                      values = c("Country" = "black", "Continent" = "firebrick4")) +
+    scale_size_manual(name = "GDP for:",
+                      values = c("Country" = 0.25, "Continent" = 2)) +
+    theme_gray() +
+    ylab("GDP per Capita") + xlab("") +
+    ggtitle("GDP per Capita, 1952-2007", subtitle = "By Continent and Country") +
+    theme(legend.position=c(0.8, 0.2), axis.text.x = element_text(angle = 45),
+          plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5))
+```
+
+A series of line charts showing the GDP per capita for each individual country, as well as aggregated by continent. Each has experienced an increase in overall GDP since 1952. Asia displays the most volatile changes in each individual country's GDP.
+
