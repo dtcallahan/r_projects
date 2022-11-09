@@ -1,0 +1,423 @@
+---
+title: "URPL 6230: Homework 5 - 2016 Elections"
+author: "Delaney Callahan"
+date: "10/11/22"
+output: 
+  html_document:
+    preserve_yaml: true
+    toc: true
+    toc_float: true
+published: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(pander)
+library(forcats)
+```
+
+# Instructions
+
+> Questions for you to answer are as quoted blocks of text. Put your code used to address these questions and interpretation below each block. Make sure your answers are NOT in block quotes like these. Load all libraries you want to use in the `setup` chunk; when you discover you want to use a library later, add it to the setup chunk at the top. You will turn in Part 1 for the coming week and Part 2 for the following week. You will upload the entire template each time, with whatever progress you have made.
+
+# Part 1
+
+## Getting the data in
+
+> Download the data from the Assignment Tab in HW. It is a plain text file of data, about 60 MB in size. Values are separated with commas (you can see this by opening it with a *good* text editor, e.g. Atom or Sublime *but not Notepad*). **Save it in the same folder as this template** and read the file into R. You will want to use the `cache=TRUE` chunk option for this (and potentially other chunks). `cache=TRUE` will allow R to read the file only once to save time.
+
+
+```{r import_data, cache=TRUE}
+elections <- read_csv("king_county_elections_2016.txt")
+```
+
+## Inspecting the data
+
+> Use `glimpse()` to look at the data.  Describe the data in their current state. How many rows are there? What variables are there? What kinds of values do they take (don't list them all if there are many)? Are the column types sensible?
+
+```{r}
+glimpse(elections)
+```
+
+`glimpse()` gives us a look at the number of rows and columns, the names of each column, its data type, and a sample of what those look like. There are `r count(elections)` rows and `r ncol(elections)` columns in the dataset. All variables take either character (<chr>) or numeric/float (<dbl>) data types.  
+
+Here is a list of the variables contained therein: `r names(elections)`.
+
+> In addition to looking generally, look at each variable individually... except consider `LEG`, `CC` and `CG` at the same time (I will tell you now these three aren't likely to be useful to you, but maybe guess what they are!). Remember these are real administrative data so they may be *really strangely structured* and some variables are indecipherable; in real world data work, you often have to get by with intuition or poking around online with regard to the nature of your data. Here useful way to look at 10 unique values of individual columns, given some `data` and a `variable` of interest:
+
+```
+data %>%
+    distinct(variable) %>%
+    head(10)
+```
+
+> Another thing you may want to do is get a frequency (count) of distinct values:
+
+```
+data %>% count(variable)
+```
+
+### Precinct
+
+```{r inspect_precint}
+elections %>%
+    distinct(Precinct) %>%
+    head(10)
+
+elections %>%
+    distinct(Precinct) %>%
+    nrow()
+
+elections %>%
+  count(Precinct) %>%
+  head(10)
+```
+
+`Precinct` appears to contain information about which precinct/administrative unit in which the vote took place. There are over 2,000 distinct precincts and there are a couple hundred records for each distinct precinct. My guess is that there is a row/records for each type of election (i.e. senator, attorney general, etc.) that all took place in that precinct. Example being, for the `ADAIR` precinct, there were 237 different elections (races) that happened. Makes sense then that each precinct within King County would have a similar number of election races since they function similarly, government wise. 
+
+### Race
+
+```{r inspect_race}
+elections %>%
+    distinct(Race) %>%
+    head(10)
+
+elections %>%
+    distinct(Race) %>%
+    nrow()
+
+elections %>%
+    count(Race) %>%
+    head(10)
+```
+
+`Race` is the name or type of election. There are `r elections %>% distinct(Race) %>% nrow()` distinct election races that took place across all precincts. Looking at the count of races above shows that some places have races that are more specific to a single precinct (such as as `City of Duvall Proposition 1` race) and others that are more widespread across precincts (such as the `Attorney General`).
+
+### LEG, CC, CG
+
+```{r inspect_LEG_CC_CG}
+elections %>%
+    distinct(LEG) %>%
+    head(10)
+
+elections %>%
+    count(LEG)
+
+elections %>%
+    distinct(CC) %>%
+    head(10)
+
+elections %>%
+    count(CC)
+
+elections %>%
+    distinct(CG) %>%
+    head(10)
+
+elections %>%
+    count(CG)
+```
+
+- `LEG` might represent legislative district? Or it corresponds to the precinct.
+- `CC` might represent county... collectors? No clue.
+- `CG` might represent county governance? Or corresponds to the counter group?  
+
+After reading the HW5_key, it is clear now that `LEG`, `CC`, and `CG` are the numbers for legislative district, King County Council district, and Congressional district, respectively. Inspecting these columns was difficult as the numeric representations of what they columns mean is pretty useless to us. 
+
+### CounterGroup
+
+```{r inspect_countergroup}
+elections %>%
+    distinct(CounterGroup) %>%
+    head(10)
+
+elections %>%
+    count(CounterGroup)
+```
+
+Within `CounterGroup` there is only one distinct value (`Total`). Seemingly pretty useless to us.
+
+### Party
+
+```{r inspect_party}
+elections %>%
+  count(Party) %>%
+  arrange(desc(n))
+```
+
+The `Party` variable tells us which race/election had which political parties. Some obvious ones are `Dem` and `Rep`, but there are others that are less clear what they stand for. Probably third parties. 
+
+### CounterType
+
+```{r inspect_countertype}
+elections %>%
+    distinct(CounterType) %>%
+    head(15)
+
+elections %>%
+    count(CounterType) %>%
+    head(15)
+```
+
+> Notice something odd about CounterType in particular? It tells you what a given row of votes was for... but it also has `Registered Voters` and `Times Counted`. What is `Times Counted`?
+
+`CounterType` appears to be a combination of candidate names (like `Barbara Madsen`), position votes (like `Approved`), and summary information for each particular election (like `Times Over Voted`) that happened within each precinct. The summary information for each election would be of importance.
+
+### SumOfCount
+
+```{r inspect_sumofcount}
+elections %>%
+  select(SumOfCount) %>%
+  head(10)
+
+elections %>%
+    filter(Race == 'Governor' & Precinct == 'ADAIR') %>%
+    select(Precinct, Race, CounterType, SumOfCount)
+```
+
+`SumOfCount` is pretty straight forward - it is the numerical count of votes for that particular race and associated with that `CounterType`.  
+
+When looking at the columns of interest side-by-side, it is clear now that `TimesCounted` equals the sum of `SumOfCount` for one particular race in one particular precinct, not including `Registered Voters`. So it is the total number of ballets cast.
+
+## The quantities of interest
+
+> We will focus on only the three major executive races in Washington in 2016:
+
+> * President (and Vice-President)
+> * Governor
+> * Lieutenant Governor
+
+> With these races, we are interested in:
+> 1. **Turnout rates** for each of these races in each precinct. We will measure turnout as times votes were counted (including for a candidate, blank, write-in, or "over vote") divided by the number of registered voters.
+> 2. Differences between precincts *in Seattle* and precincts *elsewhere in King County*. Again, these data are not documented, so you will have to figure out how to do this.
+> 3. Precinct-level support for the Democratic candidates in King County in 2012 for each contest. We will measure support as the percentage of votes in a precinct for the Democratic candidate out of all votes for candidates or write-ins. Do not include blank votes or "over votes" (where the voter indicated multiple choices) in the overall vote count for the denominator.
+
+> You will perform most of the data management for #1 and #2 in Part 1. Part 2 will contain most of the work for #3 and also covers visualizing results.
+
+> The goal to accomplish over Parts 1 and 2 will be to get the data to one **row per precinct** with the following 7 columns:
+
+> * Precinct identifier
+> * Indicator for whether the precinct is in Seattle or not
+> * Precinct size in terms of registered voters
+> * Turnout rate
+> * Percentage Democratic support for President
+> * Percentage Democratic support for Governor
+> * Percentage Democratic support for Lieutenant Governor
+
+> The sections below describe steps you may want to do to get your data organized, and provide some hints and suggestions for methods, in particular using `dplyr` and `tidyr`.
+
+## Filtering down the data
+
+> For what we want to do, there are a lot of rows that are not useful. We only want ones pertaining to races for **President**, **Governor**, and **Lieutenant Governor**. So let's trim everything down. You will want to see how these things show up in the data. The easiest way may be to (1) display every unique value of `Race` and find which ones match our races of interest, then (2) filter the data to those races.
+
+```{r filter_races}
+#looking for races of interest
+elections %>%
+    distinct(Race) %>%
+    arrange(Race) %>%
+    print(n = 98)
+
+#subsetting to just races of interest
+major_elec <- elections %>%
+    filter(Race == 'US President & Vice President' | 
+               Race == 'Governor' |
+               Race == 'Lieutenant Governor')
+```
+
+The races of interest are `Governor`, `Lieutenant Governor`, and `US President & Vice President`. I directly used those values to subset the main data and create a filtered table with just the elections of interest.
+
+## Seattle precincts
+
+> We want to determine which precincts are in Seattle and which are not. You should look at values of the `Precinct` variable and see if you can figure out what *uniquely identifies* Seattle precincts. Hint: All Seattle tracts have the same naming scheme... but some non-Seattle tracts are *similar* so be careful!
+
+> You will then want to create a binary variable that identifies Seattle tracts (for instance, with values `"Seattle"` and `"Not Seattle"`). One approach: You can use `stringr::str_sub()` or base R's `substr()` to grab a number of characters---a sub-string---from text (say, to test if they equal something); if you use this with `ifelse()` inside `mutate()` you can make a new variable based on whether the sub-string of `Precinct` equals a value.
+
+
+```{r seattle_precincts}
+major_elec <- major_elec %>%
+    mutate(is_seattle = ifelse(startsWith(Precinct, 'SEA '),
+                               'Seattle', 'Not Seattle'))
+major_elec
+```
+
+Before writing the above code, I printed out the entire list of distinct `Precincts` and scrolled through till I found what looked like the right identifier for Seattle precincts. Once I knew they all started with "SEA" plus a space, I created a new column `is_seattle` that says if that observation is in Seattle or not based on whether the `Precinct` column starts with "SEA ".
+
+## Registered voters and turnout rates
+
+> We want to calculate turnout rates as total votes (including normal votes, blank votes, over votes, write-ins) for the Presidential race divided by registered voters. $Turnout = \frac{Total Votes}{Registered Voters}$.  Hint: You will want to look at `CounterType` and `SumOfCount` at the same time, within each `Precinct` and `Race`. Examine how the `SumOfCount` values for `CounterType` value `"Times Counted"` relate to all the other `CounterType` values.
+
+```{r turnout_rates}
+#created a new object that looks at CounterType and SumOfCount within each Precinct and Race without adding up the number of registered voters and the times counted
+manual_timescounted <- major_elec %>%
+    select(Precinct, Race, CounterType, SumOfCount) %>%
+    filter(CounterType != 'Registered Voters' & 
+           CounterType != 'Times Counted') %>%
+    group_by(Precinct, Race) %>%
+    summarize(all_votes = sum(SumOfCount))
+
+head(manual_timescounted)
+
+#confirming that times counted is every vote cast possible for each race. I.E. our total vote
+compare_timescounted <- major_elec %>%
+    select(Precinct, Race, CounterType, SumOfCount) %>%
+    filter(CounterType == "Times Counted") %>%
+    rename(times_counted_value = SumOfCount) %>%
+    left_join(manual_timescounted,
+              by = c('Precinct', 'Race')) %>%
+    mutate(diff = times_counted_value - all_votes)
+
+summary(compare_timescounted$diff)
+
+#now that we have the total votes confirmed in that times counted field and we already had the registered voters count information, we can calculate turnout rates
+turnout_rates <- major_elec %>%
+    filter(Race == 'US President & Vice President') %>%
+    filter(CounterType %in% c('Registered Voters', 'Times Counted')) %>%
+    select(Precinct, is_seattle, CounterType, SumOfCount) %>%
+    pivot_wider(names_from = CounterType, values_from = SumOfCount) %>%
+    mutate(Turnout = `Times Counted` / `Registered Voters`) %>%
+    rename(`Total Votes` = `Times Counted`)
+
+head(turnout_rates)
+```
+
+I totally flubbed it here before, but after reading how you got there, I get it now. I definitely didn't explore the data well enough in the intermediate steps which I went back and did. Having a bit more information might have helped me navigate this question a little more.  
+
+The process was:  
+1. Add up all the different `CounterType` votes besides `Registered Voters` and `Times Counted` for each race and precinct.  
+2. Then compare the above results to `Times Counted` to see if they match.  
+3. Confirmed that they do, so we have found our two needed variables to calculate turnout rates: `Registered Voters` and `Times Counted` (i.e. total votes).  
+4. Calculate turnout rates!
+
+> That's it for Part 1!
+
+# Part 2
+
+## Democratic support rates
+
+> We want to get measures of democratic support in each Precinct for each of our three races. You are asked to measure support as the *percentage of votes* in a precinct for the Democratic candidate *out of all votes for candidates or write-ins*, but this time *do not to include blank votes or "over votes"* (where the voter indicated multiple choices) in the overall vote count for the denominator. Hint: A good approach here is to compute the total votes (denominator) for each precinct, and then *merge* (e.g. `left_join()`) on the Democratic vote count for each race (numerator) and divide by the total votes. That is, $Dem Support = \frac{Dem Count}{Total Votes}$.
+
+### Computing candidate votes
+
+> You will probably want to follow a process like this:
+
+> 1. Make a new dataframe with the total number of votes cast for any actual candidates (including `"Write-In"`) in each precinct and race. Hint: You will likely want to use `filter()` followed by `group_by()` and `summarize()` using the `SumOfCount` variable.
+
+> 2. Make another dataframe with the total number of votes for democratic candidates in each precinct and race. You will want to check the `Party` of candidates and work only with the democratic observations to get these vote counts. Hint: There are different democratic parties for different races (e.g. `"Dem"` and `"DPN"`).
+
+> 3. Merge the total votes data with the democratic votes data, then calculate a percent democratic votes variable for each race.
+
+```{r candidate_votes}
+#calculating all votes cast for actual candidates by precinct and race
+candidate_votes <- major_elec %>%
+    filter(CounterType != 'Times Blank Voted' & CounterType != 'Times Over Voted' &
+               CounterType != 'Registered Voters' & CounterType != 'Times Counted') %>%
+    group_by(Precinct, Race) %>%
+    summarize(candidate_votes = sum(SumOfCount))
+
+head(candidate_votes)
+
+#calculating total democratic votes cast by precinct and race
+dem_votes <- major_elec %>%
+    filter(Party == 'Dem' | Party == 'DPN') %>%
+    group_by(Precinct, Race) %>%
+    summarize(dem_votes = sum(SumOfCount))
+
+head(dem_votes)
+
+#calculating democratic support rates
+dem_support <- candidate_votes %>%
+    left_join(dem_votes,
+              by = c('Precinct', 'Race')) %>%
+    mutate(pct_demvote = dem_votes / candidate_votes)
+
+head(dem_support)
+```
+
+## Combining it all
+
+> Once you've calculated democratic voting percentages for *each race* you'll want to put them back together with the precinct turnout rate data using a **join**. Then you will want to make sure your data are shaped as I recommend above: One row per precincts, with columns for each of the relevant measures. If your data are in a format where you have a row for each race within each precinct ("long format"), you may find the `pivot_wider()` command useful for turning multiple rows for each precinct into single precinct rows with different columns for each race.
+
+```{r final_stats}
+#fixing the dem_support table to the correct format
+pct_demvote <- dem_support %>%
+    select(Precinct, Race, pct_demvote) %>%
+    pivot_wider(names_from = Race, values_from = pct_demvote)
+
+head(pct_demvote)
+
+#joining all our stats
+final_stats <- turnout_rates %>%
+    left_join(pct_demvote, by = 'Precinct') %>%
+    rename(Location = is_seattle)
+
+#pretty table of final stats
+pander(head(final_stats))
+```
+
+## Graphing the results
+
+### Turnout
+
+> Make a scatterplot where the horizontal axis (`x=`) is number of registered voters in the precinct, and the vertical axis (`y=`) is turnout rate. Color (`color=`) the precincts in Seattle one color, and use a different color for other precincts. Do you observe anything?
+
+```{r scatterplot, fig.height=5, fig.width=8}
+
+#plot
+ggplot(data = final_stats,
+       aes(x = `Registered Voters`, y = Turnout, color = Location)) +
+    geom_point() +
+    scale_color_manual(values = c("#E69F00", "#56B4E9")) +
+    scale_y_continuous(labels = scales::percent) +
+    ggtitle(label = "Registered Voters vs. Turnout Rate", 
+            subtitle = "By Precinct in King County, WA") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5),
+          text = element_text(size = 13, family = "mono"),
+          axis.title.x = element_text(vjust = -2), 
+          axis.title.y = element_text(vjust = 2),
+          plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"))
+```
+
+
+### Democratic support
+
+> Now let's visualize the Democratic support rates for the three races within each precinct for sufficently large precincts. Limit the data to precincts with at least 500 registered voters (use `filter()`). Make a line plot where the horizontal axis (`x=`) indicates precincts, and the vertical axis (`y=`) shows the Democratic support rates. There should be three lines in different colors (one for each race of interest).
+
+> **Do not** *label* the precincts on the horizontal axis: `scale_x_discrete(breaks=NULL)` is one method for doing this. You should, however, *arrange them on the axis in order from smallest to largest* in terms of support for the Democratic candidate for president---that is, the line plotting percentage support for Obama should be smoothly increasing from left to right. The order of the lines in the legend should follow the order of the lines at the right edge of the plot.
+
+> To do this, we need to use the "wide" version of the data (one row per precinct), and order `Precinct` based on Democratic support for the Presidential race (Hint: You will probably want to use `forcats::fct_reorder()` on `Precinct`). Then we can reshape back from "wide" to "tidy" form using `pivot_longer()` so that we have one variable giving the race---and another giving vote percentage---and can plot a separate line for each race.
+
+```{r dem_support_graph}
+#subsetting data and pivoting
+long_demsupport <- final_stats %>%
+    filter(`Registered Voters` >= 500) %>%
+    mutate(Precint = factor(Precinct)) %>%
+    mutate(Precinct = fct_reorder(Precinct, `US President & Vice President`, min)) %>%
+    pivot_longer(6:8, names_to = "Race", values_to = "PctDemVote")
+
+#graph
+ggplot(data = long_demsupport, 
+       aes(x = Precinct, y = PctDemVote, group = Race)) +
+    geom_line(alpha = 0.5, aes(color = Race), size = 0.75) +
+    scale_x_discrete(breaks = NULL) +
+    scale_y_continuous(labels = scales::percent) +
+    scale_color_manual(values = c("cadetblue", "darkgoldenrod2", "black")) +
+    ggtitle(label = "Democratic Support by Race", 
+            subtitle = "King County, WA") +
+    ylab("Percent Democratic Vote") +
+    theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5),
+          text = element_text(size = 13, family = "mono"),
+          axis.title.x = element_text(vjust = -2), 
+          axis.title.y = element_text(vjust = 2),
+          plot.margin = unit(c(0.5,0.5,0.5,0.5), "cm"),
+          legend.position = c(0.75, 0.15),
+          legend.text = element_text(size = 9))
+```
