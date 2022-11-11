@@ -111,7 +111,7 @@ class(kde_href_volume)
 ###################################################################################
 
 
-#tried using lscv, doesnt seem to be the best option - also takes a long ass time
+#tried using lscv, doesnt seem to be the best option - also takes a long time
 kde_lscv = kernelUD(panthers.sp, h="LSCV", grid=200, same4all=FALSE, kern=c("bivnorm"), extent=0.25)
 image(kde_lscv)
 plotLSCV(kde_lscv)
