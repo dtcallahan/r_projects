@@ -1,5 +1,5 @@
 ---
-title: "URPL 6230: Week 3 Homework"
+title: "Gapminder Exploratory Analysis"
 author: "Delaney Callahan"
 date: "09/13/2022"
 output:
