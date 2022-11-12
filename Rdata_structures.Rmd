@@ -1,5 +1,5 @@
 ---
-title: "URPL 6230: Week 4 Homework"
+title: "Data Structures Exercise"
 author: "Delaney Callahan"
 date: "09/20/22"
 output: html_document
